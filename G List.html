@@ -1,0 +1,1070 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#c8402a">
+<title>Shopping List</title>
+<style>
+  :root {
+    --bg: #f4f4f2;
+    --card: #ffffff;
+    --ink: #1c1c1a;
+    --muted: #6f6f6a;
+    --accent: #c8402a;
+    --accent-soft: #fbe9e5;
+    --line: #e3e3df;
+    --field: #fbfbfa;
+    --hover: #f2f2ef;
+    --accent-deep: #b03824;
+    --radius: 14px;
+    --ease-spring: cubic-bezier(0.34, 1.4, 0.5, 1);
+    --ease-ios: cubic-bezier(0.32, 0.72, 0, 1);
+    --accent-contrast: #ffffff;
+    color-scheme: light;
+  }
+  html[data-theme="dark"] {
+    --bg: #131312; --card: #1e1e1c; --ink: #ecebe8; --muted: #94948e;
+    --line: #2c2c29; --accent: #e85a3f; --accent-soft: #38201a;
+    --field: #171715; --hover: #292926; --accent-deep: #cf4a31; --accent-contrast: #ffffff;
+    color-scheme: dark;
+  }
+  html[data-theme="dark"] .item .unknown-tag { background: #3a3117; color: #e5c25c; }
+  html[data-theme="dark"] .modal { box-shadow: 0 12px 40px rgba(0,0,0,0.6); }
+  html[data-theme="dark"] .modal-backdrop { background: rgba(0,0,0,0.6); }
+  html[data-theme="dark"] .item.dragging { box-shadow: 0 8px 24px rgba(0,0,0,0.5); }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+    background: var(--bg);
+    color: var(--ink);
+    min-height: 100vh;
+  }
+  .wrap { max-width: 680px; margin: 0 auto; padding: 28px 18px 80px; }
+
+  header { display: flex; align-items: center; gap: 14px; margin-bottom: 22px; }
+  .logo {
+    height: 46px; min-width: 52px; border-radius: 12px; padding: 0 10px;
+    background: var(--accent); color: var(--accent-contrast);
+    display: flex; align-items: center; justify-content: center;
+    flex: none; text-align: center; line-height: 1.2;
+    font-size: 10.5px; font-weight: 800; letter-spacing: 0.6px;
+    text-transform: uppercase; font-family: "Segoe UI", system-ui, sans-serif;
+  }
+  header h1 { margin: 0; font-size: 22px; letter-spacing: 0.3px; }
+  header p { margin: 2px 0 0; font-size: 13px; color: var(--muted); }
+
+  .card {
+    position: relative;
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    padding: 14px;
+    margin-bottom: 18px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+  }
+  textarea {
+    width: 100%; min-height: 64px; resize: vertical;
+    border: 1px solid var(--line); border-radius: 10px;
+    padding: 10px 12px; font-size: 15px; font-family: inherit;
+    outline: none; background: var(--field);
+  }
+  textarea:focus { border-color: var(--accent); background: var(--card); }
+  .btns { display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
+  button {
+    font-family: inherit; font-size: 14px; font-weight: 600;
+    border: 1px solid var(--line); border-radius: 10px;
+    padding: 8px 16px; cursor: pointer; background: var(--card); color: var(--ink);
+    transition: background 0.15s, border-color 0.15s, transform 0.15s var(--ease-spring);
+  }
+  button:hover { background: var(--hover); }
+  button:active { transform: scale(0.95); }
+  button.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-contrast); }
+  button.primary:hover { background: var(--accent-deep); }
+  button.danger { color: var(--accent); border-color: #eec3ba; }
+  button.danger:hover { background: var(--accent-soft); }
+
+  .input-row { display: flex; gap: 8px; align-items: stretch; }
+  .input-row textarea { flex: 1; }
+  .send {
+    flex: none; width: 54px; border: none; border-radius: 10px;
+    background: var(--accent); color: var(--accent-contrast); font-size: 20px; padding: 0 6px;
+  }
+  .send:hover { background: var(--accent-deep); }
+  .sug-panel {
+    position: absolute; left: 10px; right: 10px; top: calc(100% + 6px);
+    background: var(--card); border: 1px solid var(--line); border-radius: 12px;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.14); z-index: 40;
+    overflow-y: auto; max-height: 40vh; display: none;
+    animation: rowIn 0.25s var(--ease-spring) backwards;
+  }
+  .sug-panel.open { display: block; }
+  .sug {
+    display: flex; align-items: center; width: 100%; text-align: left;
+    border: none; background: none; border-radius: 0;
+    padding: 10px 12px; font-size: 15px; font-weight: 500;
+  }
+  .sug:hover, .sug.active { background: var(--hover); }
+  .hint { font-size: 12.5px; color: var(--muted); margin-top: 8px; line-height: 1.5; }
+  .hint code {
+    background: var(--hover); border-radius: 5px; padding: 1px 5px;
+    font-size: 12px;
+  }
+
+  .list-head { display: flex; justify-content: space-between; align-items: baseline; margin: 26px 2px 10px; }
+  .list-head h2 { margin: 0; font-size: 16px; }
+  .list-head .head-right { display: flex; align-items: baseline; gap: 10px; }
+  .list-head .count { font-size: 13px; color: var(--muted); }
+  .linkbtn {
+    font-size: 13px; font-weight: 700; color: var(--accent);
+    background: none; border: none; padding: 4px 8px; cursor: pointer; border-radius: 8px;
+  }
+  .linkbtn:hover { background: var(--accent-soft); }
+  .iconbtn {
+    flex: none; width: 40px; height: 40px; border-radius: 12px;
+    border: 1px solid var(--line); background: var(--card); color: var(--muted);
+    font-size: 17px; cursor: pointer; padding: 0;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .iconbtn:hover { color: var(--ink); background: var(--hover); }
+  .header-actions { margin-left: auto; display: flex; gap: 8px; align-items: center; }
+  .swatch {
+    display: block; width: 18px; height: 18px; border-radius: 50%;
+    background: var(--accent); box-shadow: inset 0 0 0 1px rgba(0,0,0,0.15);
+  }
+
+  .group { display: flex; flex-direction: column; gap: 4px; margin-bottom: 22px; }
+  .group:last-child { margin-bottom: 0; }
+
+  .item {
+    display: flex; align-items: center; gap: 10px;
+    background: var(--card); border: 1px solid var(--line);
+    border-radius: 10px; padding: 9px 12px; font-size: 15px;
+  }
+  .item .name { flex: 1; }
+  .item .unknown-tag {
+    font-size: 10.5px; font-weight: 700; color: #9a6b00;
+    background: #fdf3d7; border-radius: 5px; padding: 2px 6px;
+    text-transform: uppercase; letter-spacing: 0.4px; flex: none;
+  }
+  .item .name { min-width: 0; }
+  .item .ibtn {
+    border: none; background: none; color: #b9b9b4; font-size: 15px;
+    padding: 4px 7px; border-radius: 6px; line-height: 1; flex: none;
+  }
+  .item .ibtn:hover { color: var(--ink); background: #f2f2ef; }
+  .item .rm:hover { color: var(--accent); background: var(--accent-soft); }
+  .edit-inp {
+    width: 100%; border: 1px solid var(--accent); border-radius: 8px;
+    font: inherit; font-size: 15px; padding: 4px 8px; outline: none; background: var(--card);
+  }
+  .grip {
+    cursor: grab; flex: none; color: #b9b9b4; font-size: 17px;
+    padding: 4px 6px 4px 0; line-height: 1; user-select: none; touch-action: none;
+  }
+  @keyframes rowIn {
+    from { opacity: 0; transform: translateY(10px) scale(0.97); }
+    to { opacity: 1; transform: none; }
+  }
+  @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+  body { animation: fadeIn 0.35s ease; }
+  .item { transition: transform 0.12s ease; animation: rowIn 0.4s var(--ease-spring) backwards; }
+  .item.dragging {
+    position: relative; z-index: 30; transition: none;
+    user-select: none; background: var(--card);
+    box-shadow: 0 8px 24px rgba(0,0,0,0.18); border-color: var(--accent);
+  }
+
+  .empty { text-align: center; color: var(--muted); padding: 34px 10px; font-size: 14px; }
+
+  .modal-backdrop {
+    position: fixed; inset: 0; background: rgba(20,20,18,0.45);
+    display: flex; align-items: flex-start; justify-content: center;
+    z-index: 50; padding: 24px 12px; overflow-y: auto;
+    opacity: 0; visibility: hidden; pointer-events: none;
+    transition: opacity 0.25s ease, visibility 0s linear 0.25s;
+  }
+  .modal-backdrop.open {
+    opacity: 1; visibility: visible; pointer-events: auto;
+    transition: opacity 0.25s ease;
+  }
+  .modal {
+    background: var(--card); border-radius: 16px; width: 100%; max-width: 540px;
+    padding: 20px; box-shadow: 0 12px 40px rgba(0,0,0,0.3);
+    transform: translateY(24px) scale(0.96); opacity: 0;
+    transition: transform 0.4s var(--ease-spring), opacity 0.2s ease;
+  }
+  .modal-backdrop.open .modal { transform: none; opacity: 1; }
+  .modal h3 { margin: 0 0 2px; font-size: 18px; }
+  .modal .sub { margin: 0 0 14px; font-size: 12.5px; color: var(--muted); line-height: 1.5; }
+  #masterList .group { margin-bottom: 16px; }
+  .madd { display: flex; gap: 8px; margin-top: 4px; }
+  .madd input {
+    flex: 1; min-width: 0; border: 1px solid var(--line); border-radius: 10px;
+    padding: 10px 12px; font-size: 15px; outline: none; background: var(--field);
+  }
+  .madd input:focus { border-color: var(--accent); background: var(--card); }
+  .modal-actions { display: flex; justify-content: space-between; align-items: center; margin-top: 14px; }
+  #mReset { font-size: 13px; color: var(--muted); padding: 8px 10px; }
+
+  .toast {
+    position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%) translateY(80px);
+    background: var(--ink); color: var(--bg); font-size: 14px; font-weight: 600;
+    padding: 10px 20px; border-radius: 10px; opacity: 0;
+    transition: all 0.45s var(--ease-spring); pointer-events: none;
+  }
+  .toast.show { transform: translateX(-50%) translateY(0); opacity: 1; }
+
+  /* ---------- Mobile ---------- */
+  @media (max-width: 640px) {
+    .wrap { padding: 20px 12px 170px; }
+    header { margin-bottom: 16px; }
+    header h1 { font-size: 20px; }
+    header p { font-size: 12px; }
+    .input-card {
+      position: fixed;
+      left: 10px; right: 10px;
+      bottom: calc(10px + env(safe-area-inset-bottom, 0px));
+      margin: 0;
+      padding: 10px;
+      z-index: 10;
+      box-shadow: 0 4px 18px rgba(0,0,0,0.14);
+    }
+    textarea { min-height: 46px; font-size: 16px; padding: 12px; }
+    .send { width: 54px; font-size: 22px; }
+    .btns { margin-top: 8px; }
+    .btns button { flex: 1; padding: 13px 8px; font-size: 15px; }
+    .btns button.primary { flex: 1.4; }
+    .hint { display: none; }
+    .list-head { margin: 20px 2px 10px; }
+    .item { padding: 13px 10px; font-size: 16px; }
+    .item .ibtn { font-size: 18px; padding: 8px 8px; }
+    .item .mv { display: none; }
+    .grip { font-size: 21px; padding: 6px 8px 6px 0; }
+    .item .unknown-tag { display: none; }
+    .group { gap: 6px; margin-bottom: 18px; }
+    .modal { padding: 16px; }
+    .madd input { font-size: 16px; }
+    #masterList .item { padding: 10px 8px; font-size: 15px; }
+    .sug-panel { top: auto; bottom: calc(100% + 6px); }
+    .sug { padding: 13px 12px; font-size: 16px; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation: none !important; transition: none !important; }
+  }
+</style>
+<script>
+  try {
+    var _t = localStorage.getItem("glist-theme");
+    if (!_t) _t = (window.matchMedia && matchMedia("(prefers-color-scheme: dark)").matches) ? "dark" : "light";
+    document.documentElement.dataset.theme = _t;
+  } catch (e) { document.documentElement.dataset.theme = "light"; }
+</script>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="logo">Seoul<br>Chicken</div>
+    <div>
+      <h1>Shopping List</h1>
+      <p>Always in master-list order.</p>
+    </div>
+    <div class="header-actions">
+      <button class="iconbtn" id="btnAccent" title="Theme color — double-click to reset" aria-label="Theme color"><span class="swatch"></span></button>
+      <button class="iconbtn" id="btnTheme" title="Toggle dark mode" aria-label="Toggle dark mode">☾</button>
+    </div>
+    <input type="color" id="accentPicker" hidden>
+  </header>
+
+  <div class="card input-card">
+    <div class="input-row">
+      <textarea id="input" placeholder=""></textarea>
+      <button class="send" id="btnSend" title="Enter typed list">➔</button>
+    </div>
+    <div class="sug-panel" id="sugPanel"></div>
+    <div class="btns">
+      <button class="primary" id="btnAdd">Add / Update</button>
+      <button class="danger" id="btnNew">New list</button>
+      <button id="btnCopy">Copy list</button>
+    </div>
+    <div class="hint">
+      Spelling mistakes, abbreviations and variations are matched to the master list.
+      Quantities in brackets or with units work: <code>Rice cake(2)</code>, <code>Carne picada 2kg</code>.
+      Unknown items appear at the top. Per item: grab ⠿ and drag to move it · ✎ fix wording · ✕ take it out.
+      Use "Master list" to view and edit the master list. Suggestions appear while you type — tap one (or press Tab) to fill it in.
+      Everything is saved in your browser.
+    </div>
+  </div>
+
+  <div class="list-head">
+    <h2>Current list</h2>
+    <span class="head-right">
+      <button class="linkbtn" id="btnMaster">Master list</button>
+      <span class="count" id="count"></span>
+    </span>
+  </div>
+  <div id="list"></div>
+</div>
+
+<div class="modal-backdrop" id="masterBackdrop">
+  <div class="modal">
+    <h3>Master list</h3>
+    <p class="sub">View and edit the master list — rename items, reorder them, add or remove items. Your shopping list follows this order.</p>
+    <div id="masterList"></div>
+    <div class="madd">
+      <input id="mAddInput" type="text" placeholder="Add a new master item…">
+      <button class="primary" id="mAddBtn">Add</button>
+    </div>
+    <div class="modal-actions">
+      <button id="mReset">Reset to default</button>
+      <button class="primary" id="mClose">Done</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+"use strict";
+
+/* ---------- Master list (name, sort key) ---------- */
+const DEFAULT_MASTER = [
+  ["Chicken",0],["Porco lombo",10],["Carne picada",20],
+  ["Fried tofu",30],["Dumpling Chicken",40],["Dumpling tofu",50],["Breadcrumbs",60],["Yellow radish",70],["Ramyeon",80],["Buldak",90],["Rice cake",100],
+  ["Hotdog sausage",120],["Hotdog mozzarella cheese",130],["Normal rice",140],["Fried onion rings",150],["Fried cheese sticks",160],["Tuna",170],
+  ["Wooden stick (Hotdog)",190],["Wooden stick(TTK)",200],["Kitchen towel without strip",210],["Kitchen towel strip",220],["Thin Plastic bag (L)",230],["Thin Plastic bag (M)",240],["Thick plastic bag (L)",250],["Thick plastic bag (M)",260],["Garbage bag(150L)",270],["Metal sponge",280],["Plastic wrap",290],["Aluminium foil",300],["Kitchen paper roll",310],["Burger stick",320],["Plastic glove",330],["Chicken paper",340],["Lighter",350],["Lighter gas",360],["Dishwashing soap hand",370],["Dishy shing soap machine",380],["Dishwasher cleaner liquid",390],["Dishwasher Machine cleaning powder",400],["Dishwashing liquid",410],["Sponge for dishwasing",420],["Sanytol",430],["Mistolin",440],["Lixivia",450],
+  ["Soap flour rice flour yeast",460],["Vanila",470],["Sugar",480],["Salt",490],["Olive oil",500],["Oil (s)",510],["Cooking wine",520],["Sesame",530],["Pickle",540],["Mayonaise",550],["Ketchup",560],["Mustard seed",570],["Worcester sauce",580],["Piri piri extra sauce",590],["Agave syrup",600],
+  ["Burger bun",610],["Mozzarella cheese",620],["Burger cheese",630],["Cheese powder for chickens cheese",640],["Bacon",650],["Butter",660],["Egg",670],["Egg york",680],["Milk nata milk",690],
+  ["Fried Shrimp",700],["Fried Sweet potato",710],["Fish Saengsungas lemon juice",720],["Sweet potato",730],
+  ["Ginger",740],["Onion",750],["Carrot",760],["Garlic (Bring it from Gangnam)",770],
+  ["Korean salad alface",780],["Cabbage",790],["Alface (Bring it from Gangnam)",800],["Iceberg",810],["Cucumber",820],["Chilli",830],["Tomato",840],["Pimento green",850],["Pimento red",860],["Sping oinion(L)",870],["Sping oinion (S)",880],["Mushroom (shiitake)",890],["Black pepper",900],["Sesame seed",910]
+];
+
+/* Special mappings (normalized alias -> master sort key).
+   Virtual keys 45/47 sit between Dumpling Chicken(40) and Dumpling tofu(50). */
+const ALIAS = {
+  "white wine":520, "white wine cooking wine":520,
+  "gloves":330, "plastic gloves":330, "plastic glove":330,
+  "dishwashing sponge":420, "dishwashing sponges":420,
+  "dumpling veg":45, "dumpling vegs":45, "dumpling vegetable":45,
+  "kitchen dumplings":47, "dumpling kitchen":47, "kitchen dumpling":47,
+  "spring onion":870, "spring onion l":870, "spring onions":870, "sping onion":870, "sping oinion":870,
+  "spring onion s":880, "sping onion s":880,
+  "pimenta green":850, "pimenta red":860,
+  "nata milk":690,
+  "burber bun":610,
+  "cheese powder":640, "cheese powder cheese chicken":640, "cheese powder for chicken cheese":640, "cheese powder for chickens cheese":640,
+  "fish saengsungas":720, "fish saengsungas lemon":720,
+  "fried shrimps":700, "fried shrimp":700,
+  "fried sweet potatoes":710,
+  "kitchen towels":210, "kitchen towel":210,
+  "rice":140, "tuna can":170, "tuna cans":170
+};
+
+/* ---------- Editable master list ---------- */
+// Virtual slots: items that live between master items but aren't master entries
+const VIRTUAL = [["v_dveg", 45], ["v_kdumpling", 47]];
+const keyToDefaultId = {};
+DEFAULT_MASTER.forEach(([, k], i) => keyToDefaultId[k] = "m" + i);
+const virtualId = { 45: "v_dveg", 47: "v_kdumpling" };
+const ALIAS_IDS = {};
+for (const s in ALIAS) ALIAS_IDS[s] = keyToDefaultId[ALIAS[s]] || virtualId[ALIAS[s]];
+
+let master = loadMaster();
+let KEYS = {};
+function loadMaster() {
+  try {
+    const d = JSON.parse(localStorage.getItem("glist-master"));
+    if (Array.isArray(d) && d.length && d.every(it => it && it.id && typeof it.n === "string" && typeof it.k === "number")) return d;
+  } catch (e) { /* use default */ }
+  return DEFAULT_MASTER.map((x, i) => ({ id: "m" + i, n: x[0], k: x[1] }));
+}
+function saveMaster() { localStorage.setItem("glist-master", JSON.stringify(master)); }
+function refreshKeys() {
+  KEYS = {};
+  for (const it of master) KEYS[it.id] = it.k;
+  for (const [id, k] of VIRTUAL) KEYS[id] = k;
+}
+function masterSorted() { return [...master].sort((a, b) => a.k - b.k); }
+function mutateMaster(fn) {
+  fn();
+  saveMaster(); refreshKeys();
+  // shopping entries pointing at a removed master item become unknown
+  for (const e of state) {
+    if (e.k !== null && KEYS[e.k] === undefined) { e.k = null; if (e.ord === undefined) e.ord = unknownCounter++; }
+  }
+  save(); render(); renderMasterModal(); refreshPlaceholder();
+}
+refreshKeys();
+
+/* ---------- Normalization & fuzzy matching ---------- */
+function norm(s) {
+  return s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+          .replace(/[^a-z0-9]+/g, " ").trim();
+}
+function lev(a, b) {
+  const m = a.length, n = b.length;
+  if (!m) return n; if (!n) return m;
+  let prev = Array.from({length: n+1}, (_, i) => i);
+  for (let i = 1; i <= m; i++) {
+    const cur = [i];
+    for (let j = 1; j <= n; j++) {
+      cur[j] = Math.min(prev[j] + 1, cur[j-1] + 1, prev[j-1] + (a[i-1] === b[j-1] ? 0 : 1));
+    }
+    prev = cur;
+  }
+  return prev[n];
+}
+function sim(a, b) {
+  if (!a && !b) return 1;
+  return 1 - lev(a, b) / Math.max(a.length, b.length);
+}
+function wordSim(a, b) {
+  if (a === b) return 1;
+  const s = sim(a, b);
+  if (Math.min(a.length, b.length) >= 3 && (a.startsWith(b) || b.startsWith(a))) return Math.max(s, 0.8);
+  return s;
+}
+function scoreMatch(qn, cn) {
+  const qt = qn.split(" "), ct = cn.split(" ");
+  let score = sim(qn, cn);
+  // full-word prefix match (query words match the first master words)
+  let prefix = true;
+  for (let i = 0; i < qt.length; i++) {
+    if (i >= ct.length || wordSim(qt[i], ct[i]) < 0.7) { prefix = false; break; }
+  }
+  if (prefix) score = Math.max(score, qt.length === ct.length ? 0.95 : 0.85);
+  // all query words found anywhere in the master name
+  let contains = true;
+  for (const qw of qt) {
+    if (!ct.some(cw => wordSim(qw, cw) >= 0.75)) { contains = false; break; }
+  }
+  if (contains) score = Math.max(score, 0.7);
+  // all master words found inside the query (e.g. "tuna can" -> "Tuna")
+  let revContains = true;
+  for (const cw of ct) {
+    if (!qt.some(qw => wordSim(qw, cw) >= 0.75)) { revContains = false; break; }
+  }
+  if (revContains) score = Math.max(score, 0.68);
+  return score;
+}
+function matchItem(text) {
+  const qn = norm(text);
+  if (!qn) return null;
+  if (ALIAS_IDS[qn] !== undefined) return { id: ALIAS_IDS[qn] };
+  let best = null, bestScore = 0.65; // threshold; earlier master items win ties
+  for (const it of masterSorted()) {
+    const s = scoreMatch(qn, norm(it.n));
+    if (s > bestScore) { bestScore = s; best = it.id; }
+  }
+  return best === null ? null : { id: best };
+}
+
+/* ---------- Quantity extraction ---------- */
+function splitQty(raw) {
+  let text = raw.trim(), qty = "";
+  let m = text.match(/[([{]\s*([^)\]}]+)\s*[)\]}]\s*$/);
+  if (m) {
+    const inner = m[1].trim();
+    if (/\d/.test(inner) || /^(l|m|s|xl)$/i.test(inner)) {
+      qty = "(" + inner + ")";
+      text = text.slice(0, m.index).trim();
+    }
+  }
+  if (!qty) {
+    m = text.match(/\s(\d+(?:[.,]\d+)?\s*(?:kg|kgs|g|gr|gram|grams|l|lt|ltr|ml|un|unidades|pcs|pieces|x)?)$/i);
+    if (m) { qty = m[1].trim(); text = text.slice(0, m.index).trim(); }
+  }
+  return { text: text || raw.trim(), qty };
+}
+
+/* ---------- State ---------- */
+let state = [];       // {k: master item id or null, text, qty, ord?}
+let unknownCounter = 0;
+
+function save() { localStorage.setItem("glist-state", JSON.stringify({state, unknownCounter})); }
+function load() {
+  try {
+    const d = JSON.parse(localStorage.getItem("glist-state"));
+    if (d && Array.isArray(d.state)) { state = d.state; unknownCounter = d.unknownCounter || 0; }
+  } catch (e) { /* fresh start */ }
+  // migrate old numeric master keys to stable ids
+  for (const e of state) {
+    if (typeof e.k === "number") e.k = keyToDefaultId[e.k] || virtualId[e.k] || null;
+    if (e.k === null && e.ord === undefined) e.ord = unknownCounter++;
+  }
+}
+
+function sectionOf(k) {
+  if (k < 30) return 0; if (k < 120) return 1; if (k < 190) return 2;
+  if (k < 460) return 3; if (k < 610) return 4; if (k < 700) return 5;
+  if (k < 740) return 6; if (k < 780) return 7; return 8;
+}
+
+function rejoinQty(raw, qty) {
+  // strip any trailing amount/size from raw, then attach the new one
+  let base = raw;
+  let m = base.match(/[([{]\s*([^)\]}]+)\s*[)\]}]\s*$/);
+  if (m && (/\d/.test(m[1]) || /^(l|m|s|xl)$/i.test(m[1]))) base = base.slice(0, m.index).trim();
+  else {
+    m = base.match(/\s\d+(?:[.,]\d+)?\s*(?:kg|kgs|g|gr|gram|grams|l|lt|ltr|ml|un|unidades|pcs|pieces|x)?$/i);
+    if (m) base = base.slice(0, m.index).trim();
+  }
+  if (!qty) return base;
+  return base + (qty.startsWith("(") ? qty : " " + qty);
+}
+function setQty(e, qty) {
+  const raw0 = e.raw !== undefined ? e.raw : e.text + (e.qty ? (e.qty.startsWith("(") ? e.qty : " " + e.qty) : "");
+  e.qty = qty || "";
+  e.raw = rejoinQty(raw0, e.qty);
+}
+function addItem(raw) {
+  const { text, qty } = splitQty(raw);
+  const m = matchItem(text);
+  if (m) {
+    const ex = state.find(e => e.k === m.id);
+    if (ex) { if (qty) setQty(ex, qty); return; }
+    state.push({ k: m.id, text, qty, raw: raw.trim() });
+  } else {
+    const n = norm(text);
+    const ex = state.find(e => e.k === null && norm(e.text) === n);
+    if (ex) { if (qty) setQty(ex, qty); return; }
+    state.push({ k: null, text, qty, raw: raw.trim(), ord: unknownCounter++ });
+  }
+}
+function removeItem(raw) {
+  const { text } = splitQty(raw);
+  const m = matchItem(text);
+  let idx = -1;
+  if (m) idx = state.findIndex(e => e.k === m.id);
+  if (idx === -1) {
+    const n = norm(text);
+    idx = state.findIndex(e => norm(e.text) === n);
+  }
+  if (idx === -1) {
+    idx = state.findIndex(e => norm(e.text).includes(n) || n.includes(norm(e.text)));
+  }
+  if (idx !== -1) state.splice(idx, 1);
+}
+function changeQty(itemRaw, qtyRaw) {
+  const { text } = splitQty(itemRaw);
+  const m = matchItem(text);
+  const qty = qtyRaw.trim().replace(/^[([{]\s*|\s*[)\]}]$/g, "");
+  const q = /^\d/.test(qty) && !/[([{]/.test(qtyRaw.trim()) ? qty : "(" + qty + ")";
+  const rawLine = text + (q.startsWith("(") ? q : " " + q);
+  if (m) {
+    const ex = state.find(e => e.k === m.id);
+    if (ex) setQty(ex, q); else state.push({ k: m.id, text, qty: q, raw: rawLine });
+  } else {
+    const n = norm(text);
+    const ex = state.find(e => e.k === null && norm(e.text) === n);
+    if (ex) setQty(ex, q); else state.push({ k: null, text, qty: q, raw: rawLine, ord: unknownCounter++ });
+  }
+}
+
+function processLine(line) {
+  let m;
+  if ((m = line.match(/^new list\s*$/i)) || (m = line.match(/^new list[:\-]\s*$/i))) { state = []; return; }
+  if ((m = line.match(/^take out\s+(.+)$/i)) || (m = line.match(/^remove\s+(.+)$/i))) { removeItem(m[1]); return; }
+  if ((m = line.match(/^(?:change|update)\s+(.+?)\s+(?:to|qty|quantity(?:\s+to)?)\s+(.+)$/i))) { changeQty(m[1], m[2]); return; }
+  if (line.trim()) addItem(line);
+}
+function processInput(text) {
+  text.split(/\n+/).map(l => l.trim()).filter(Boolean).forEach(processLine);
+  save(); render();
+}
+
+/* ---------- Rendering ---------- */
+const listEl = document.getElementById("list");
+const countEl = document.getElementById("count");
+
+function sortFor(e) {
+  if (e.sort !== undefined) return e.sort;
+  if (e.k === null || KEYS[e.k] === undefined) return -100000 - (e.ord || 0);
+  return KEYS[e.k];
+}
+function sectionOfKey(e) { return (e.k === null || KEYS[e.k] === undefined) ? -1 : sectionOf(KEYS[e.k]); }
+function effSec(e) { return e.sec !== undefined ? e.sec : sectionOfKey(e); }
+function buildGroups(items) {
+  const groups = [];
+  let cur = null, curSec = Infinity;
+  for (const e of items) {
+    const s = effSec(e);
+    if (s !== curSec) { cur = []; groups.push(cur); curSec = s; }
+    cur.push(e);
+  }
+  return groups;
+}
+function sortedState() {
+  return [...state].sort((a, b) => sortFor(a) - sortFor(b));
+}
+function moveItem(e, dir) {
+  const items = sortedState();
+  const i = items.indexOf(e);
+  if (dir < 0 && i <= 0) return;
+  if (dir > 0 && i >= items.length - 1) return;
+  const nb = items[dir < 0 ? i - 1 : i + 1];
+  e.sort = dir < 0 ? sortFor(nb) - 0.001 : sortFor(nb) + 0.001;
+  e.sec = effSec(nb);
+  save(); render();
+}
+function commitShoppingMove(t, i) {
+  const items = sortedState();
+  const e = items[i];
+  if (!e) return;
+  const rest = items.slice(); rest.splice(i, 1); rest.splice(t, 0, e);
+  const prev = rest[t - 1], next = rest[t + 1];
+  if (!prev && !next) return;
+  if (prev && next) e.sort = (sortFor(prev) + sortFor(next)) / 2;
+  else if (prev) e.sort = sortFor(prev) + 0.001;
+  else e.sort = sortFor(next) - 0.001;
+  e.sec = effSec(prev || next);
+  save(); render();
+}
+function commitMasterMove(t, i) {
+  mutateMaster(() => {
+    const arr = masterSorted();
+    const it = arr[i];
+    if (!it) return;
+    const rest = arr.slice(); rest.splice(i, 1); rest.splice(t, 0, it);
+    const prev = rest[t - 1], next = rest[t + 1];
+    if (!prev && !next) return;
+    if (prev && next) it.k = (prev.k + next.k) / 2;
+    else if (prev) it.k = prev.k + 5;
+    else it.k = next.k - 5;
+  });
+}
+function attachDrag(grip, row, container, commit) {
+  grip.addEventListener("pointerdown", ev => {
+    if (ev.pointerType === "mouse" && ev.button !== 0) return;
+    ev.preventDefault();
+    const rows = Array.from(container.querySelectorAll(".item"));
+    const i = rows.indexOf(row);
+    if (i === -1) return;
+    const rects = rows.map(r => r.getBoundingClientRect());
+    const centers = rects.map(r => r.top + r.height / 2);
+    const dragH = rects[i].height + 4;
+    let target = i, active = false;
+    const startY = ev.clientY;
+    try { grip.setPointerCapture(ev.pointerId); } catch (err) {}
+    const move = e => {
+      const dy = e.clientY - startY;
+      if (!active) {
+        if (Math.abs(dy) < 6) return;
+        active = true;
+        row.style.animation = "none";
+        row.classList.add("dragging");
+      }
+      e.preventDefault();
+      row.style.transform = "translateY(" + dy + "px)";
+      const c = centers[i] + dy;
+      let cnt = 0;
+      rows.forEach((r, p) => { if (p !== i && centers[p] < c) cnt++; });
+      target = cnt;
+      rows.forEach((r, p) => {
+        if (p === i) return;
+        let shift = 0;
+        if (i < target && p > i && p <= target) shift = -dragH;
+        else if (i > target && p >= target && p < i) shift = dragH;
+        r.style.transform = shift ? "translateY(" + shift + "px)" : "";
+      });
+    };
+    const up = () => {
+      grip.removeEventListener("pointermove", move);
+      grip.removeEventListener("pointerup", up);
+      grip.removeEventListener("pointercancel", up);
+      rows.forEach(r => { r.classList.remove("dragging"); r.style.transform = ""; });
+      if (active && target !== i) commit(target, i);
+    };
+    grip.addEventListener("pointermove", move);
+    grip.addEventListener("pointerup", up);
+    grip.addEventListener("pointercancel", up);
+  });
+}
+function startEdit(e, nameSpan) {
+  const inp = document.createElement("input");
+  inp.type = "text";
+  inp.className = "edit-inp";
+  inp.value = display(e);
+  nameSpan.textContent = "";
+  nameSpan.appendChild(inp);
+  inp.focus();
+  inp.select();
+  let done = false;
+  const finish = commit => {
+    if (done) return;
+    done = true;
+    if (commit && inp.value.trim()) {
+      e.raw = inp.value.trim();
+      const s = splitQty(e.raw);
+      e.text = s.text;
+      e.qty = s.qty;
+    }
+    save(); render();
+  };
+  inp.addEventListener("keydown", ev => {
+    if (ev.key === "Enter") { ev.preventDefault(); finish(true); }
+    else if (ev.key === "Escape") { ev.preventDefault(); finish(false); }
+  });
+  inp.addEventListener("blur", () => finish(true));
+}
+function display(e) {
+  return e.raw !== undefined ? e.raw : e.text + (e.qty ? " " + e.qty : "");
+}
+
+function render() {
+  const items = sortedState();
+  countEl.textContent = items.length ? items.length + (items.length === 1 ? " item" : " items") : "";
+  listEl.innerHTML = "";
+  if (!items.length) {
+    listEl.innerHTML = '<div class="empty">Your list is empty.<br>Add something above, or paste several lines at once.</div>';
+    return;
+  }
+  let rIdx = 0;
+  for (const g of buildGroups(items)) {
+    const div = document.createElement("div");
+    div.className = "group";
+    for (const e of g) {
+      const row = document.createElement("div");
+      row.className = "item";
+      row.style.animationDelay = Math.min(rIdx++ * 20, 320) + "ms";
+      const grip = document.createElement("span");
+      grip.className = "grip"; grip.textContent = "⠿"; grip.title = "Drag to move";
+      row.appendChild(grip);
+      attachDrag(grip, row, listEl, commitShoppingMove);
+      const name = document.createElement("span");
+      name.className = "name";
+      name.textContent = display(e);
+      row.appendChild(name);
+      if (e.k === null) {
+        const tag = document.createElement("span");
+        tag.className = "unknown-tag";
+        tag.textContent = "not in master";
+        row.appendChild(tag);
+      }
+      const mk = (label, title, fn, rm, extra) => {
+        const b = document.createElement("button");
+        b.className = "ibtn" + (rm ? " rm" : "") + (extra ? " " + extra : "");
+        b.title = title; b.textContent = label;
+        b.onclick = fn;
+        row.appendChild(b);
+      };
+      mk("↑", "Move up", () => moveItem(e, -1), false, "mv");
+      mk("↓", "Move down", () => moveItem(e, 1), false, "mv");
+      mk("✎", "Edit wording", () => startEdit(e, name));
+      mk("✕", "Take out", () => { state.splice(state.indexOf(e), 1); save(); render(); }, true);
+      div.appendChild(row);
+    }
+    listEl.appendChild(div);
+  }
+}
+
+function plainText() {
+  const items = sortedState();
+  if (!items.length) return "";
+  // No blank lines between master-list sections.
+  // Only one blank line: between unknown items and the master-list items.
+  const firstKnown = items.findIndex(e => effSec(e) !== -1);
+  if (firstKnown > 0) {
+    return items.slice(0, firstKnown).map(display).join("\n")
+      + "\n\n"
+      + items.slice(firstKnown).map(display).join("\n");
+  }
+  return items.map(display).join("\n");
+}
+
+/* ---------- UI wiring ---------- */
+const inputEl = document.getElementById("input");
+function refreshPlaceholder() {
+  inputEl.placeholder = masterSorted().map(it => it.n).join("\n");
+}
+function submitTyped() {
+  if (inputEl.value.trim()) { processInput(inputEl.value); inputEl.value = ""; }
+  hideSuggestions();
+}
+document.getElementById("btnAdd").onclick = submitTyped;
+document.getElementById("btnSend").onclick = submitTyped;
+
+/* ---------- Autocomplete ---------- */
+const sugPanel = document.getElementById("sugPanel");
+let sugItems = [], sugActive = -1;
+function currentQuery() {
+  const pos = inputEl.selectionStart;
+  const before = inputEl.value.slice(0, pos);
+  return before.slice(before.lastIndexOf("\n") + 1);
+}
+function hideSuggestions() {
+  sugPanel.classList.remove("open");
+  sugPanel.innerHTML = "";
+  sugItems = []; sugActive = -1;
+}
+function highlightSug() {
+  Array.from(sugPanel.children).forEach((b, i) => b.classList.toggle("active", i === sugActive));
+}
+function updateSuggestions() {
+  const line = currentQuery();
+  const qn = norm(line);
+  hideSuggestions();
+  if (!qn || /^new list\b/i.test(line) || /^(take out|remove|change|update)\b/i.test(line)) return;
+  const scored = [];
+  for (const it of masterSorted()) {
+    let s = scoreMatch(qn, norm(it.n));
+    for (const alias in ALIAS_IDS) {
+      if (ALIAS_IDS[alias] === it.id) s = Math.max(s, scoreMatch(qn, alias) * 0.98);
+    }
+    if (s >= 0.45) scored.push({ it, s });
+  }
+  scored.sort((a, b) => b.s - a.s);
+  sugItems = scored.slice(0, 6).map(x => x.it);
+  if (!sugItems.length) return;
+  sugItems.forEach(it => {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.className = "sug";
+    b.textContent = it.n;
+    b.addEventListener("pointerdown", ev => ev.preventDefault());
+    b.onclick = () => acceptSuggestion(it.n);
+    sugPanel.appendChild(b);
+  });
+  sugPanel.classList.add("open");
+}
+function acceptSuggestion(name) {
+  const pos = inputEl.selectionStart;
+  const before = inputEl.value.slice(0, pos);
+  const lineStart = before.lastIndexOf("\n") + 1;
+  inputEl.value = before.slice(0, lineStart) + name + inputEl.value.slice(pos);
+  const newPos = lineStart + name.length;
+  inputEl.focus();
+  inputEl.setSelectionRange(newPos, newPos);
+  hideSuggestions();
+}
+inputEl.addEventListener("input", updateSuggestions);
+inputEl.addEventListener("blur", () => setTimeout(hideSuggestions, 150));
+inputEl.addEventListener("keydown", e => {
+  if (sugPanel.classList.contains("open")) {
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      sugActive = Math.min(sugActive + 1, sugItems.length - 1);
+      highlightSug(); return;
+    }
+    if (e.key === "ArrowUp") {
+      e.preventDefault();
+      sugActive = sugActive > 0 ? sugActive - 1 : -1;
+      highlightSug(); return;
+    }
+    if ((e.key === "Tab" || (e.key === "Enter" && sugActive >= 0)) && sugItems.length) {
+      e.preventDefault();
+      acceptSuggestion(sugItems[Math.max(sugActive, 0)].n);
+      return;
+    }
+    if (e.key === "Escape") {
+      e.preventDefault();
+      hideSuggestions();
+      return;
+    }
+  }
+  if (e.key === "Enter" && !e.shiftKey) {
+    e.preventDefault();
+    submitTyped();
+  }
+});
+document.getElementById("btnNew").onclick = () => { state = []; save(); render(); };
+document.getElementById("btnCopy").onclick = async () => {
+  const t = plainText();
+  if (!t) { showToast("Nothing to copy"); return; }
+  try { await navigator.clipboard.writeText(t); showToast("List copied"); }
+  catch (e) {
+    const ta = document.createElement("textarea");
+    ta.value = t; document.body.appendChild(ta); ta.select();
+    document.execCommand("copy"); ta.remove(); showToast("List copied");
+  }
+};
+function showToast(msg) {
+  const t = document.getElementById("toast");
+  t.textContent = msg; t.classList.add("show");
+  clearTimeout(t._h); t._h = setTimeout(() => t.classList.remove("show"), 1600);
+}
+
+/* ---------- Master list editor ---------- */
+const masterBackdrop = document.getElementById("masterBackdrop");
+function renderMasterModal() {
+  const wrap = document.getElementById("masterList");
+  wrap.innerHTML = "";
+  const groups = [];
+  let cur = null, curSec = Infinity;
+  for (const it of masterSorted()) {
+    const s = sectionOf(it.k);
+    if (s !== curSec) { cur = []; groups.push(cur); curSec = s; }
+    cur.push(it);
+  }
+  let rIdx = 0;
+  for (const g of groups) {
+    const div = document.createElement("div");
+    div.className = "group";
+    for (const it of g) {
+      const row = document.createElement("div");
+      row.className = "item";
+      row.style.animationDelay = Math.min(rIdx++ * 20, 320) + "ms";
+      const grip = document.createElement("span");
+      grip.className = "grip"; grip.textContent = "⠿"; grip.title = "Drag to move";
+      row.appendChild(grip);
+      attachDrag(grip, row, wrap, commitMasterMove);
+      const name = document.createElement("span");
+      name.className = "name";
+      name.textContent = it.n;
+      row.appendChild(name);
+      const mk = (label, title, fn, rm, extra) => {
+        const b = document.createElement("button");
+        b.className = "ibtn" + (rm ? " rm" : "") + (extra ? " " + extra : "");
+        b.title = title; b.textContent = label;
+        b.onclick = fn;
+        row.appendChild(b);
+      };
+      mk("↑", "Move up", () => mutateMaster(() => moveMasterItem(it, -1)), false, "mv");
+      mk("↓", "Move down", () => mutateMaster(() => moveMasterItem(it, 1)), false, "mv");
+      mk("✎", "Rename", () => startMasterEdit(it, name));
+      mk("✕", "Remove from master list", () => {
+        if (confirm('Remove "' + it.n + '" from the master list?')) mutateMaster(() => removeMasterItem(it));
+      }, true);
+      div.appendChild(row);
+    }
+    wrap.appendChild(div);
+  }
+}
+function moveMasterItem(it, dir) {
+  const arr = masterSorted();
+  const i = arr.indexOf(it);
+  if (dir < 0 && i <= 0) return;
+  if (dir > 0 && i >= arr.length - 1) return;
+  if (dir < 0) {
+    const nb = arr[i - 1];
+    const below = i >= 2 ? arr[i - 2].k : nb.k - 20;
+    it.k = (below + nb.k) / 2;
+  } else {
+    const nb = arr[i + 1];
+    const above = i + 2 < arr.length ? arr[i + 2].k : nb.k + 20;
+    it.k = (nb.k + above) / 2;
+  }
+}
+function removeMasterItem(it) { master.splice(master.indexOf(it), 1); }
+function addMasterItem(name) {
+  const k = (master.length ? Math.max(...master.map(m => m.k)) : 0) + 10;
+  master.push({ id: "u" + Date.now().toString(36) + Math.random().toString(36).slice(2, 7), n: name, k });
+}
+function resetMaster() { master = DEFAULT_MASTER.map((x, i) => ({ id: "m" + i, n: x[0], k: x[1] })); }
+function startMasterEdit(it, nameSpan) {
+  const inp = document.createElement("input");
+  inp.type = "text";
+  inp.className = "edit-inp";
+  inp.value = it.n;
+  nameSpan.textContent = "";
+  nameSpan.appendChild(inp);
+  inp.focus();
+  inp.select();
+  let done = false;
+  const finish = commit => {
+    if (done) return;
+    done = true;
+    if (commit && inp.value.trim()) it.n = inp.value.trim();
+    mutateMaster(() => {});
+  };
+  inp.addEventListener("keydown", ev => {
+    if (ev.key === "Enter") { ev.preventDefault(); finish(true); }
+    else if (ev.key === "Escape") { ev.preventDefault(); finish(false); }
+  });
+  inp.addEventListener("blur", () => finish(true));
+}
+function doMasterAdd() {
+  const el = document.getElementById("mAddInput");
+  const v = el.value.trim();
+  if (!v) return;
+  mutateMaster(() => addMasterItem(v));
+  el.value = "";
+}
+document.getElementById("btnMaster").onclick = () => {
+  renderMasterModal();
+  masterBackdrop.classList.add("open");
+};
+document.getElementById("mClose").onclick = () => masterBackdrop.classList.remove("open");
+masterBackdrop.addEventListener("click", e => {
+  if (e.target === masterBackdrop) masterBackdrop.classList.remove("open");
+});
+document.getElementById("mAddBtn").onclick = doMasterAdd;
+document.getElementById("mAddInput").addEventListener("keydown", e => {
+  if (e.key === "Enter") { e.preventDefault(); doMasterAdd(); }
+});
+document.getElementById("mReset").onclick = () => {
+  if (confirm("Reset the master list to the default? Custom items you added will be removed.")) mutateMaster(() => resetMaster());
+};
+document.addEventListener("keydown", e => {
+  if (e.key === "Escape" && masterBackdrop.classList.contains("open")) masterBackdrop.classList.remove("open");
+});
+
+/* ---------- Theme ---------- */
+const themeBtn = document.getElementById("btnTheme");
+function applyTheme(t) {
+  document.documentElement.dataset.theme = t;
+  try { localStorage.setItem("glist-theme", t); } catch (err) {}
+  themeBtn.textContent = t === "dark" ? "☀" : "☾";
+  document.querySelector('meta[name="theme-color"]').setAttribute("content", t === "dark" ? "#131312" : "#c8402a");
+  applyAccentVars();
+}
+applyTheme(document.documentElement.dataset.theme || "light");
+themeBtn.onclick = () => applyTheme(document.documentElement.dataset.theme === "dark" ? "light" : "dark");
+
+/* ---------- Accent color ---------- */
+const accentPicker = document.getElementById("accentPicker");
+function hexToRgb(hex) {
+  const h = hex.replace("#", "");
+  const s = h.length === 3 ? h.split("").map(c => c + c).join("") : h;
+  const n = parseInt(s, 16);
+  return { r: (n >> 16) & 255, g: (n >> 8) & 255, b: n & 255 };
+}
+function rgbToHex(c) {
+  const f = v => Math.max(0, Math.min(255, Math.round(v))).toString(16).padStart(2, "0");
+  return "#" + f(c.r) + f(c.g) + f(c.b);
+}
+function mixHex(a, b, t) {
+  const A = hexToRgb(a), B = hexToRgb(b);
+  return rgbToHex({ r: A.r + (B.r - A.r) * t, g: A.g + (B.g - A.g) * t, b: A.b + (B.b - A.b) * t });
+}
+function applyAccentVars() {
+  const root = document.documentElement;
+  const theme = root.dataset.theme;
+  let saved = null;
+  try { saved = localStorage.getItem("glist-accent"); } catch (err) {}
+  ["--accent", "--accent-deep", "--accent-soft", "--accent-contrast"].forEach(p => root.style.removeProperty(p));
+  if (!saved || !/^#[0-9a-f]{6}$/i.test(saved)) return;
+  const c = hexToRgb(saved);
+  const lum = (0.299 * c.r + 0.587 * c.g + 0.114 * c.b) / 255;
+  root.style.setProperty("--accent", saved);
+  root.style.setProperty("--accent-deep", mixHex(saved, "#000000", 0.2));
+  root.style.setProperty("--accent-soft", theme === "dark" ? mixHex(saved, "#131312", 0.22) : mixHex(saved, "#ffffff", 0.12));
+  root.style.setProperty("--accent-contrast", lum > 0.62 ? "#1c1c1a" : "#ffffff");
+}
+(function initAccent() {
+  let saved = "#c8402a";
+  try {
+    const s = localStorage.getItem("glist-accent");
+    if (s && /^#[0-9a-f]{6}$/i.test(s)) saved = s;
+  } catch (err) {}
+  accentPicker.value = saved;
+  document.getElementById("btnAccent").onclick = () => accentPicker.click();
+  accentPicker.addEventListener("input", () => {
+    try { localStorage.setItem("glist-accent", accentPicker.value); } catch (err) {}
+    applyAccentVars();
+  });
+  document.getElementById("btnAccent").addEventListener("dblclick", () => {
+    try { localStorage.removeItem("glist-accent"); } catch (err) {}
+    accentPicker.value = "#c8402a";
+    applyAccentVars();
+    showToast("Theme color reset");
+  });
+  applyAccentVars();
+})();
+
+load(); refreshPlaceholder(); render();
+</script>
+</body>
+</html>
